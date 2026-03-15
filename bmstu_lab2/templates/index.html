@@ -1,0 +1,58 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="rus" xmlns="http://www.w3.org/1999/html">
+    <head>
+        <meta charset="UTF-8" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Услуги банка</title>
+        <link rel="stylesheet" type="text/css" href="{% static 'style.css' %}" />
+    </head>
+    <body>
+        <div class="space">
+            <h1>УСЛУГИ БАНКА</h1>
+            <div class="header"></div>
+            <div class="container">
+                <div class="card">
+                  <div class="info">
+                    <img src="{% static 'img/credit-business.jpg' %}" alt="Кредит для бизнеса" class="image">
+                    <p class="title">Кредит для бизнеса</p>
+                    <p class="short-description">На недвижимость, транспорт, модернизацию производства или на пополнение оборотных средств</p>
+                  </div>
+                  <div class="down">
+                    <p>от 16,0% ₽</p>
+                    <a href="" class="card-button">Подробнее</a>
+                  </div>
+                </div>
+                <div class="card">
+                  <div class="info">
+                    <img src="{% static 'img/cash-servises.jpg' %}" alt="Расчетный счет" class="image">
+                    <p class="title">Расчетный счет для бизнеса</p>
+                    <p class="short-description">Открой бесплатно<br>
+                    Выбери свой тариф<br>
+                    Пополнение без комиссии<br>
+                    Подключение овердрафта</p>
+                  </div>
+                  <div class="down">
+                     <p>от 490 ₽</p>
+                     <a href="" class="card-button">Подробнее</a>
+                  </div>
+                </div>
+                <div class="card">
+                  <div class="info">
+                    <img src="{% static 'img/credit-card.jpg' %}" alt="Кредитная карта" class="image">
+                    <p class="title">Кредитная карта</p>
+                    <p class="short-description">Длительный беспроцентный период<br>
+                    Без комиссии<br>
+                    Повышенный кешбэк<br>
+                    Обслуживание бесплатно</p>
+                  </div>
+                  <div class="down">
+                     <p>от 3.0%</p>
+                     <a href="" class="card-button">Подробнее</a></div>
+                  </div>
+                </div>
+            </div>
+
+    </body>
+</html>
