@@ -1,0 +1,54 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="rus" xmlns="http://www.w3.org/1999/html" xmlns="http://www.w3.org/1999/html">
+    <head>
+        <meta charset="UTF-8" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Услуги банка</title>
+        <link rel="stylesheet" type="text/css" href="{% static 'style.css' %}" />
+    </head>
+
+    <body>
+            <header class="header">
+                 <a href="{% url 'bankservice_list' %}" class="home-link">
+                    <img src="{% static 'img/home2.jpg' %}" alt="Домой">
+                </a>
+
+            </header>
+
+        <div class="space">
+
+            <div class="cart">
+                <a href="{% url 'bank_request' bank_request.id %}">
+                    <img src="{% static 'img/basket-servises.jpg' %}" alt="Корзина" class="cart-icon">
+                        <span class="cart-count">{{ total_items }}</span>
+                </a>
+            </div>
+
+        <form method="get" class="search-form">
+            <input type="text" name="q" value="{{query}}" placeholder="Выберете свой банковский продукт">
+            <button type="submit">Найти</button>
+        </form>
+
+            <div class="container">
+                {% for bankservice in bankservices %}
+                    <div class="card">
+                       <a href="{% url 'bankservice_detail' bankservice.id %}">
+                        <img src="http://localhost:9000/bank/img/{{ bankservice.image }}" alt="{{ bankservice.name }}" class="card-image">
+                       </a>
+                        <p class="title">{{bankservice.name}}</p>
+                        <p class="short-description">Балансовый счет: {{ bankservice.balance_account }}</p>
+                        <!--<p class="short-description">{{ bankservice.description|truncatechars:80 }}</p>-->
+
+                        <div class="down"></div>
+                    </div>
+
+
+                {% endfor %}
+
+            </div>
+        </div>
+
+    </body>
+</html>
