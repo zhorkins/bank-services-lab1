@@ -52,24 +52,27 @@ body {
 
 .container {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, 260px);
     gap: 20px;
 }
 
 .card {
+    width: 260px;
+    min-height: 380px;
     border-radius: 8px;
     background: white;
     padding: 16px;
     display: flex;
     flex-direction: column;
     cursor: pointer;
+    box-sizing: border-box;
 }
 .card a {
     text-decoration: none;
 }
 .card-image {
     width: 100%;
-    height: 125px;
+    height: 160px;
     border-radius: 8px;
     object-fit: cover;
     margin-bottom: 10px;

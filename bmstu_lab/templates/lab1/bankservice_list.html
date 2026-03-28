@@ -12,7 +12,7 @@
     <body>
             <header class="header">
                  <a href="{% url 'bankservice_list' %}" class="home-link">
-                    <img src="{% static 'img/home2.jpg' %}" alt="Домой">
+                    <img src="http://localhost:9000/bank/img/home2.jpg" alt="Домой">
                 </a>
 
             </header>
@@ -21,7 +21,7 @@
 
             <div class="cart">
                 <a href="{% url 'bank_request' bank_request.id %}">
-                    <img src="{% static 'img/basket-servises.jpg' %}" alt="Корзина" class="cart-icon">
+                    <img src="http://localhost:9000/bank/basket-servises.jpg" alt="Корзина" class="cart-icon">
                         <span class="cart-count">{{ total_items }}</span>
                 </a>
             </div>
