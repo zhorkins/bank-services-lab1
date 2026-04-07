@@ -177,3 +177,52 @@ body {
     padding: 20px;
     backdrop-filter: blur(2px);
 }
+
+.card-button {
+    margin-top: auto;
+    padding: 8px 16px;
+    background-color: white;
+    color: rgb(50, 97, 236);
+    border: 1px solid rgb(50, 97, 236);
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s, color 0.2s;
+
+}
+
+.card-button:hover {
+    background-color: rgb(50, 97, 236);
+    color: white;
+}
+
+.card .down {
+    margin-top: auto;
+    width: 100%;
+}
+.card .down form {
+    width: 100%;
+}
+.card-button {
+    width: 100%; /* кнопка на всю ширину */
+}
+
+.delete-btn {
+    display: inline-block;
+    padding: 8px 16px;
+    background-color: white;
+    color: rgb(50, 97, 236);
+    border: 1px solid rgb(50, 97, 236);
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s, color 0.2s;
+    margin-left: 10px;
+}
+
+.delete-btn:hover {
+    background-color: rgb(50, 97, 236);
+    color: white;
+}

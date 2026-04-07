@@ -18,12 +18,20 @@
             </header>
 
         <div class="space">
-
             <div class="cart">
-                <a href="{% url 'bank_request' bank_request.id %}">
-                    <img src="http://localhost:9000/bank/img/basket-servises.JPG" alt="Корзина" class="cart-icon">
-                        <span class="cart-count">{{ total_items }}</span>
-                </a>
+                {% if bank_request %}
+                    <a href="{% url 'bank_request' bank_request.id %}">
+                     <img src="http://localhost:9000/bank/img/basket-servises.JPG" alt="Корзина" class="cart-icon">
+                     <span class="cart-count">{{ total_items }}</span>
+                    </a>
+                    <form method="post" action="{% url 'delete_request' bank_request.id %}">
+                        {% csrf_token %}
+                        <button type="submit" class="delete-btn">Удалить заявку</button>
+                    </form>
+                {% else %}
+                    <span class="cart-empty"></span>
+                {% endif %}
+
             </div>
 
         <form method="get" class="search-form">
@@ -41,7 +49,12 @@
                         <p class="short-description">Балансовый счет: {{ bankservice.balance_account }}</p>
                         <!--<p class="short-description">{{ bankservice.description|truncatechars:80 }}</p>-->
 
-                        <div class="down"></div>
+                        <div class="down">
+                            <form method="post" action="{% url 'add_to_request' bankservice.id %}">
+                                {% csrf_token %}
+                                <button type="submit" class="card-button">Добавить в заявку</button>
+                            </form>
+                        </div>
                     </div>
 
 

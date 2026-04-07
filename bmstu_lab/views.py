@@ -1,136 +1,104 @@
-from django.shortcuts import render, redirect
+from django.db import models
+from django.shortcuts import render, redirect, get_object_or_404
+from django.db import connection
+from django.views.decorators.http import require_POST
+from django.contrib.auth.models import User
+from .models import BankService, BankRequest, BankServiceInRequest
 
-bankservices = [
-    {
-        'id': 1,
-        'name': 'Кредит для бизнеса',
-        'rate': 'от 16%',
-        'balance_account': '40701',
-        "description": 'Кредит на покупку оборудования, пополнение оборотных средств или модернизацию производства',
-        'image': 'credity_KB.png',
-        'video': 'credit.mp4',
-
-    },
-    {
-        'id': 2,
-        'name': 'Расчетный счет для бизнеса',
-        'rate': '0 ₽ обслуживание',
-        'balance_account': '40702',
-        "description": 'Открытие онлайн, бесплатные переводы внутри банка, персональный менеджер',
-        'image': 'diploma.jpg',
-        'video': 'Video cash.mp4',
-    },
-    {
-        'id': 3,
-        'name': 'Кредитная карта',
-        'rate': 'от 3%',
-        'balance_account': '40801',
-        "description": 'Кэшбэк до 5%, бесплатное обслуживание при тратах от 5 000 ₽/мес.',
-        'image': 'credit_card.jpg',
-        'video': 'credit_card.mp4',
-    },
-    {
-        'id': 4,
-        'name': 'Депозит',
-        'rate': 'до 14%',
-        'balance_account': '40703',
-        "description": 'Гибкие условия, пополнение и частичное снятие',
-        'image': 'deposit.webp',
-        'video': 'deposit.mp4',
-    },
-    {
-        'id': 5,
-        'name': 'Эквайринг',
-        'rate': 'от 1,5%',
-        'balance_account': '40704',
-        "description": 'Приём карт, оплата по QR-коду, онлайн-касса в подарок',
-        'image': 'acquiring.jpg',
-        'video': 'acquaring.mp4',
-    }
-]
-
-bank_request = {
-    'id': 101,
-    'client_name': 'Иванов Иван Иванович',
-    'total_cost': '1 500 ₽',
-    'items': [
-        {
-            'bankservice_id': 1,
-            'quantity': 2,
-            'bank_account': '40802810600000005678',
-        },
-{
-            'bankservice_id': 2,
-            'quantity': 1,
-            'bank_account': '40802810700000004444',
-        },
-        {
-            'bankservice_id': 3,
-            'quantity': 1,
-            'bank_account': '40802810700000009123',
-        },
-        {
-            'bankservice_id': 4,
-            'quantity': 4,
-            'bank_account': '40802810700000005489',
-        },
-        {
-            'bankservice_id': 5,
-            'quantity': 6,
-            'bank_account': '40802810700000003256',
-        },
-    ],
-}
-
-# Контроллер для страницы списка услуг (главная)
+# ----------------------------------------------------------------------
+# 1. СТРАНИЦА СПИСКА УСЛУГ (ГЛАВНАЯ)
+# ----------------------------------------------------------------------
 def bankservice_list(request):
     query = request.GET.get('q', '')
+    services = BankService.objects.filter(is_active=True)
     if query:
-        filtered_bankservices = [s for s in bankservices if query.lower() in s['name'].lower()]
-        if not filtered_bankservices:
-            filtered_bankservices = bankservices
-    else:
-        filtered_bankservices = bankservices
+        services = services.filter(name__icontains=query)
 
-    # считаем общее количество позиций в заявке
-    total_items = sum(item['quantity'] for item in bank_request['items'])
+    # Получаем текущую заявку-черновик для пользователя
+    user = User.objects.first()
+    current_request = BankRequest.objects.filter(client=user, status=BankRequest.Status.DRAFT).first()
+    total_items = 0
+    if current_request:
+        total_items = BankServiceInRequest.objects.filter(request=current_request).count()
 
     context = {
-        'bankservices': filtered_bankservices,
-        'bank_request': bank_request,
+        'bankservices': services,
+        'bank_request': current_request,
         'total_items': total_items,
         'query': query,
     }
     return render(request, 'lab1/bankservice_list.html', context)
 
-# Контроллер для детальной страницы услуги
+# ----------------------------------------------------------------------
+# 2. ДЕТАЛЬНАЯ СТРАНИЦА УСЛУГИ
+# ----------------------------------------------------------------------
 def bankservice_detail(request, bankservice_id):
-    bankservice = next((s for s in bankservices if s['id'] == bankservice_id), None)
-    if not bankservice:
-        return redirect('bankservice_list')  # если нет такой услуги
-    return render(request, 'lab1/bankservice_detail.html', {'bankservice': bankservice})
+    service = get_object_or_404(BankService, id=bankservice_id, is_active=True)
+    return render(request, 'lab1/bankservice_detail.html', {'bankservice': service})
 
-# Контроллер для страницы заявки
+# ----------------------------------------------------------------------
+# 3. СТРАНИЦА ПРОСМОТРА ЗАЯВКИ
+# ----------------------------------------------------------------------
 def bank_request_detail(request, request_id):
-    if request_id != bank_request['id']:
+    bank_request = get_object_or_404(BankRequest, id=request_id)
+    if bank_request.status == BankRequest.Status.DELETED:
         return redirect('bankservice_list')
-    # обогащаем элементы заявки данными об услугах
 
-    items = []  # <-- добавьте эту строку
+    # Получаем все связи "заявка-услуга"
+    items_qs = BankServiceInRequest.objects.filter(request=bank_request).select_related('service')
 
-    for item in bank_request['items']:
-        bankservice = next((s for s in bankservices if s['id'] == item['bankservice_id']), None)
-        if bankservice:
-            items.append({
-                'bankservice_name': bankservice['name'],
-                'bankservice_rate': bankservice['rate'],
-                'bankservice_balance_account': bankservice['balance_account'],
-                'bankservice_image': bankservice['image'],
-                'quantity': item['quantity'],
-                'bank_account': item['bank_account'],
-            })
+    # Преобразуем в список словарей с нужными ключами
+    items = []
+    for item in items_qs:
+        items.append({
+            'bankservice_name': item.service.name,
+            'bankservice_rate': item.service.rate,
+            'bankservice_balance_account': item.service.balance_account,
+            'bankservice_image': item.service.image,
+            'bank_account': item.bank_account,
+            'quantity': item.quantity,
+        })
+
     context = {
         'bank_request': bank_request,
         'items': items,
     }
     return render(request, 'lab1/bank_request.html', context)
+
+# ----------------------------------------------------------------------
+# 4. ДОБАВЛЕНИЕ УСЛУГИ В ЗАЯВКУ (ЧЕРЕЗ ORM)
+# ----------------------------------------------------------------------
+@require_POST
+def add_to_request(request, service_id):
+    service = get_object_or_404(BankService, id=service_id, is_active=True)
+    user = User.objects.first()
+    # Найти или создать черновик заявки для этого пользователя
+    bank_request, created = BankRequest.objects.get_or_create(
+        client=user,
+        status=BankRequest.Status.DRAFT,
+        defaults={'status': BankRequest.Status.DRAFT}
+    )
+    # Добавить услугу (или увеличить количество, если уже есть)
+    item, created = BankServiceInRequest.objects.get_or_create(
+        request=bank_request,
+        service=service,
+        defaults={'quantity': 1, 'bank_account': '40802810600000005678'}
+    )
+    if not created:
+        item.quantity += 1
+        item.save()
+    return redirect('bankservice_list')
+
+# ----------------------------------------------------------------------
+# 5. ЛОГИЧЕСКОЕ УДАЛЕНИЕ ЗАЯВКИ (ЧЕРЕЗ SQL UPDATE)
+# ----------------------------------------------------------------------
+def delete_request(request, request_id):
+    if request.method == 'POST':
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "UPDATE bmstu_lab_bankrequest SET status = 'DELETED' WHERE id = %s",
+                [request_id]
+            )
+        return redirect('bankservice_list')
+    else:
+        return redirect('bankservice_list')

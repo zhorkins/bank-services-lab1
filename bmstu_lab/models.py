@@ -1,51 +1,56 @@
 from django.db import models
-class Product(models.Model):
-    title = models.CharField(max_length=255)
-    price = models.DecimalField(max_digits=10, decimal_places=2)
-    is_active = models.BooleanField(default=True)
-
-    def __str__(self):
-        return self.title
-
 from django.contrib.auth.models import User
 
-# ...
+# Модель услуги (банковский продукт)
+class BankService(models.Model):
+    name = models.CharField(max_length=100, verbose_name="Название услуги")
+    rate = models.CharField(max_length=20, verbose_name="Ставка/процент")
+    amount = models.CharField(max_length=50, verbose_name="Сумма/лимит")
+    term = models.CharField(max_length=50, verbose_name="Срок")
+    balance_account = models.CharField(max_length=5, verbose_name="Балансовый счёт")
+    description = models.TextField(verbose_name="Описание")
+    image = models.CharField(max_length=100, blank=True, null=True, verbose_name="Изображение (ключ в Minio)")
+    video = models.CharField(max_length=100, blank=True, null=True, verbose_name="Видео (ключ в Minio)")
+    is_active = models.BooleanField(default=True, verbose_name="Активна")
 
-class Order(models.Model):
-    class OrderStatus(models.TextChoices):
-        DRAFT = "DRAFT"
-        DELETED = "DELETED"
-        FORMED = "FORMED"
-        COMPLETED = "COMPLETED"
-        REJECTED = "REJECTED"
+    def __str__(self):
+        return self.name
+
+# Модель заявки
+class BankRequest(models.Model):
+    class Status(models.TextChoices):
+        DRAFT = 'DRAFT', 'Черновик'
+        DELETED = 'DELETED', 'Удалён'
+        FORMED = 'FORMED', 'Сформирован'
+        COMPLETED = 'COMPLETED', 'Завершён'
+        REJECTED = 'REJECTED', 'Отклонён'
 
     status = models.CharField(
         max_length=10,
-        choices=OrderStatus.choices,
-        default=OrderStatus.DRAFT,
+        choices=Status.choices,
+        default=Status.DRAFT,
+        verbose_name="Статус"
     )
-
-    creation_datetime = models.DateTimeField(auto_now_add=True)
-    formation_datetime = models.DateTimeField(blank=True, null=True)
-    completion_datetime = models.DateTimeField(blank=True, null=True)
-    client = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name='created_orders')
-    manager = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name='managed_orders', blank=True, null=True)
-
-    def __str__(self):
-        return f"Заказ № {self.id}"
-
-class ProductInOrder(models.Model):
-    order = models.ForeignKey(Order, on_delete=models.CASCADE)
-    product = models.ForeignKey(Product, on_delete=models.CASCADE)
-    quantity = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
+    formed_at = models.DateTimeField(null=True, blank=True, verbose_name="Дата формирования")
+    completed_at = models.DateTimeField(null=True, blank=True, verbose_name="Дата завершения")
+    client = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name='bank_requests', verbose_name="Клиент")
+    manager = models.ForeignKey(User, on_delete=models.DO_NOTHING, null=True, blank=True, related_name='managed_requests', verbose_name="Менеджер")
+    total_cost = models.CharField(max_length=50, blank=True, verbose_name="Стоимость обслуживания")
 
     def __str__(self):
-        return f"{self.order_id}-{self.product_id}"
+        return f"Заявка №{self.id}"
+
+# Модель связи "услуги в заявке" (многие-ко-многим с доп. полями)
+class BankServiceInRequest(models.Model):
+    request = models.ForeignKey(BankRequest, on_delete=models.DO_NOTHING, verbose_name="Заявка")
+    service = models.ForeignKey(BankService, on_delete=models.DO_NOTHING, verbose_name="Услуга")
+    quantity = models.PositiveIntegerField(default=1, verbose_name="Количество")
+    comment = models.CharField(max_length=255, blank=True, verbose_name="Комментарий")
+    bank_account = models.CharField(max_length=20, verbose_name="Банковский счёт клиента")
 
     class Meta:
-        unique_together = ('order', 'product'),
+        unique_together = ('request', 'service')   # составной уникальный ключ
 
-    class Meta:
-        unique_together = ('order', 'product'),
-
-# Create your models here.
+    def __str__(self):
+        return f"{self.request} – {self.service} x{self.quantity}"
