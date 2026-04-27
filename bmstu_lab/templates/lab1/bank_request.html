@@ -9,7 +9,7 @@
 
 <body>
     <header class="header">
-        <a href="{% url 'bankservice_list' %}" class="home-link">
+        <a href="{% url 'bank_services_list' %}" class="home-link">
             <img src="http://localhost:9000/bank/img/home2.jpg" alt="Домой">
         </a>
     </header>
@@ -21,12 +21,19 @@
             <p><strong>Стоимость обслуживания:</strong> {{ bank_request.total_cost }}</p>
         </div>
 
+        <div class="delete-request-form">
+            <form method="post" action="{% url 'bank_delete_request' bank_request.id %}">
+                {% csrf_token %}
+                <button type="submit" class="delete-btn">Удалить заявку</button>
+            </form>
+        </div>
 
         <div class="table-header">
             <span></span>
             <span>Услуга</span>
             <span>Балансовый счет</span>
             <span>Банковский счет</span>
+            <span>Стоимость услуги</span>
         </div>
 
          {% for item in items %}
@@ -36,6 +43,7 @@
                 <span>{{ item.bankservice_name }}</span>
                 <span>{{ item.bankservice_balance_account }}</span>
                 <span>{{ item.bank_account }}</span>
+                <span>4500руб</span>
              </div>
          {% endfor %}
     </div>

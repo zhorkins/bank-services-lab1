@@ -20,9 +20,9 @@ from django.urls import path
 from bmstu_lab import views
 
 urlpatterns = [
-    path('', views.bankservice_list, name='bankservice_list'),
-    path('service/<int:bankservice_id>/', views.bankservice_detail, name='bankservice_detail'),
-    path('request/<int:request_id>/', views.bank_request_detail, name='bank_request'),
-    path('add-to-request/<int:service_id>/', views.add_to_request, name='add_to_request'),
-    path('delete-request/<int:request_id>/', views.delete_request, name='delete_request'),
+    path('', views.bankservice_list, name='bank_services_list'),
+    path('bankservice/<int:bankservice_id>/', views.bankservice_detail, name='bank_services_detail'),
+    path('bankrequest/<int:bank_request_id>/', views.bank_request_detail, name='bank_request_detail'),
+    path('add-to-request/<int:bankservice_id>/', views.add_to_request, name='bank_add_to_request'),
+    path('delete-request/<int:bank_request_id>/', views.delete_request, name='bank_delete_request'),
 ]

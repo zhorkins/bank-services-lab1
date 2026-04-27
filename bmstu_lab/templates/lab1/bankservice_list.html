@@ -11,7 +11,7 @@
 
     <body>
             <header class="header">
-                 <a href="{% url 'bankservice_list' %}" class="home-link">
+                 <a href="{% url 'bank_services_list' %}" class="home-link">
                     <img src="http://localhost:9000/bank/img/home2.jpg" alt="Домой">
                 </a>
 
@@ -19,19 +19,16 @@
 
         <div class="space">
             <div class="cart">
-                {% if bank_request %}
-                    <a href="{% url 'bank_request' bank_request.id %}">
-                     <img src="http://localhost:9000/bank/img/basket-servises.JPG" alt="Корзина" class="cart-icon">
-                     <span class="cart-count">{{ total_items }}</span>
+                {% if bank_request and total_items > 0 %}
+                    <a href="{% url 'bank_request_detail' bank_request.id %}" class="cart-link">
+                        <img src="http://localhost:9000/bank/img/basket-servises.JPG" alt="Корзина" class="cart-icon">
+                        <span class="cart-count">{{ total_items }}</span>
                     </a>
-                    <form method="post" action="{% url 'delete_request' bank_request.id %}">
-                        {% csrf_token %}
-                        <button type="submit" class="delete-btn">Удалить заявку</button>
-                    </form>
                 {% else %}
-                    <span class="cart-empty"></span>
+                    <div class="cart-empty">
+                        <img src="http://localhost:9000/bank/img/basket-servises.JPG" alt="Корзина пуста" class="cart-icon disabled">
+                    </div>
                 {% endif %}
-
             </div>
 
         <form method="get" class="search-form">
@@ -42,7 +39,7 @@
             <div class="container">
                 {% for bankservice in bankservices %}
                     <div class="card">
-                       <a href="{% url 'bankservice_detail' bankservice.id %}">
+                       <a href="{% url 'bank_services_detail' bankservice.id %}">
                         <img src="http://localhost:9000/bank/img/{{ bankservice.image }}" alt="{{ bankservice.name }}" class="card-image">
                        </a>
                         <p class="title">{{bankservice.name}}</p>
@@ -50,7 +47,7 @@
                         <!--<p class="short-description">{{ bankservice.description|truncatechars:80 }}</p>-->
 
                         <div class="down">
-                            <form method="post" action="{% url 'add_to_request' bankservice.id %}">
+                            <form method="post" action="{% url 'bank_add_to_request' bankservice.id %}">
                                 {% csrf_token %}
                                 <button type="submit" class="card-button">Добавить в заявку</button>
                             </form>

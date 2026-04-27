@@ -11,7 +11,7 @@ class BankService(models.Model):
     description = models.TextField(verbose_name="Описание")
     image = models.CharField(max_length=100, blank=True, null=True, verbose_name="Изображение (ключ в Minio)")
     video = models.CharField(max_length=100, blank=True, null=True, verbose_name="Видео (ключ в Minio)")
-    is_active = models.BooleanField(default=True, verbose_name="Активна")
+    is_deleted = models.BooleanField(default=False, verbose_name="Флаг мягкого удаления")
 
     def __str__(self):
         return self.name
@@ -34,9 +34,9 @@ class BankRequest(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
     formed_at = models.DateTimeField(null=True, blank=True, verbose_name="Дата формирования")
     completed_at = models.DateTimeField(null=True, blank=True, verbose_name="Дата завершения")
-    client = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name='bank_requests', verbose_name="Клиент")
+    client_name = models.CharField(max_length=150, verbose_name="ФИО клиента", default="Клиент по умолчанию")
     manager = models.ForeignKey(User, on_delete=models.DO_NOTHING, null=True, blank=True, related_name='managed_requests', verbose_name="Менеджер")
-    total_cost = models.CharField(max_length=50, blank=True, verbose_name="Стоимость обслуживания")
+    total_cost = models.CharField(max_length=50, blank=True, null=True, verbose_name="Стоимость обслуживания")
 
     def __str__(self):
         return f"Заявка №{self.id}"
@@ -45,12 +45,10 @@ class BankRequest(models.Model):
 class BankServiceInRequest(models.Model):
     request = models.ForeignKey(BankRequest, on_delete=models.DO_NOTHING, verbose_name="Заявка")
     service = models.ForeignKey(BankService, on_delete=models.DO_NOTHING, verbose_name="Услуга")
-    quantity = models.PositiveIntegerField(default=1, verbose_name="Количество")
-    comment = models.CharField(max_length=255, blank=True, verbose_name="Комментарий")
-    bank_account = models.CharField(max_length=20, verbose_name="Банковский счёт клиента")
+    bank_account = models.CharField(max_length=20, blank=True, null=True, verbose_name="Банковский счёт клиента")
 
     class Meta:
         unique_together = ('request', 'service')   # составной уникальный ключ
 
     def __str__(self):
-        return f"{self.request} – {self.service} x{self.quantity}"
+        return f"{self.request} – {self.service}"
