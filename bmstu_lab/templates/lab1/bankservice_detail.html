@@ -12,14 +12,14 @@
 
         <header class="header">
             <a href="{% url 'bank_services_list' %}" class="home-link">
-                <img src="{% static 'img/home2.jpg' %}" alt="Домой">
+                <img src="http://localhost:9002/bank/img/home2.jpg" alt="Домой">
             </a>
         </header>
 
         <div class="space">
             <div class="vibes-card">
                 <video autoplay muted loop class="vibes-video">
-                    <source src="http://localhost:9000/bank/video/{{ bankservice.video }}" type="video/mp4">
+                    <source src="http://localhost:9002/bank/video/{{ bankservice.video }}" type="video/mp4">
                 </video>
                 <div class="vibes-overlay">
                     <h1>{{ bankservice.name }}</h1>

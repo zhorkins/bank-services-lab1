@@ -1,17 +1,17 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.contrib.auth.models import AbstractUser
+from django.conf import settings
 
 # Модель услуги (банковский продукт)
 class BankService(models.Model):
     name = models.CharField(max_length=100, verbose_name="Название услуги")
-    rate = models.CharField(max_length=20, verbose_name="Ставка/процент")
-    amount = models.CharField(max_length=50, verbose_name="Сумма/лимит")
-    term = models.CharField(max_length=50, verbose_name="Срок")
     balance_account = models.CharField(max_length=5, verbose_name="Балансовый счёт")
     description = models.TextField(verbose_name="Описание")
-    image = models.CharField(max_length=100, blank=True, null=True, verbose_name="Изображение (ключ в Minio)")
-    video = models.CharField(max_length=100, blank=True, null=True, verbose_name="Видео (ключ в Minio)")
-    is_deleted = models.BooleanField(default=False, verbose_name="Флаг мягкого удаления")
+    image = models.CharField(max_length=100, blank=True, null=True, verbose_name="Изображение")
+    video = models.CharField(max_length=100, blank=True, null=True, verbose_name="Видео")
+    is_deleted = models.BooleanField(default=False, verbose_name="Мягкое удаление")
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Стоимость услуги")
 
     def __str__(self):
         return self.name
@@ -25,19 +25,16 @@ class BankRequest(models.Model):
         COMPLETED = 'COMPLETED', 'Завершён'
         REJECTED = 'REJECTED', 'Отклонён'
 
-    status = models.CharField(
-        max_length=10,
-        choices=Status.choices,
-        default=Status.DRAFT,
-        verbose_name="Статус"
-    )
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
-    formed_at = models.DateTimeField(null=True, blank=True, verbose_name="Дата формирования")
-    completed_at = models.DateTimeField(null=True, blank=True, verbose_name="Дата завершения")
-    client_name = models.CharField(max_length=150, verbose_name="ФИО клиента", default="Клиент по умолчанию")
-    manager = models.ForeignKey(User, on_delete=models.DO_NOTHING, null=True, blank=True, related_name='managed_requests', verbose_name="Менеджер")
-    total_cost = models.CharField(max_length=50, blank=True, null=True, verbose_name="Стоимость обслуживания")
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.DRAFT)
+    created_at = models.DateTimeField(auto_now_add=True)
+    formed_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    total_cost = models.CharField(max_length=50, blank=True, null=True)
 
+    client = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.DO_NOTHING, related_name='client_requests',
+                               verbose_name="Клиент")
+    moderator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.DO_NOTHING, null=True, blank=True,
+                                  related_name='moderated_requests', verbose_name="Модератор")
     def __str__(self):
         return f"Заявка №{self.id}"
 
@@ -52,3 +49,10 @@ class BankServiceInRequest(models.Model):
 
     def __str__(self):
         return f"{self.request} – {self.service}"
+
+# Модель пользователя (проверка роли модератора у пользователя)
+class User(AbstractUser):
+    is_moderator = models.BooleanField(default=False, verbose_name="Модератор")
+
+    class Meta:
+        db_table = 'auth_user'

@@ -12,7 +12,7 @@
     <body>
             <header class="header">
                  <a href="{% url 'bank_services_list' %}" class="home-link">
-                    <img src="http://localhost:9000/bank/img/home2.jpg" alt="Домой">
+                    <img src="http://localhost:9002/bank/img/home2.jpg" alt="Домой">
                 </a>
 
             </header>
@@ -21,12 +21,12 @@
             <div class="cart">
                 {% if bank_request and total_items > 0 %}
                     <a href="{% url 'bank_request_detail' bank_request.id %}" class="cart-link">
-                        <img src="http://localhost:9000/bank/img/basket-servises.JPG" alt="Корзина" class="cart-icon">
+                        <img src="http://localhost:9002/bank/img/basket-servises.JPG" alt="Корзина" class="cart-icon">
                         <span class="cart-count">{{ total_items }}</span>
                     </a>
                 {% else %}
                     <div class="cart-empty">
-                        <img src="http://localhost:9000/bank/img/basket-servises.JPG" alt="Корзина пуста" class="cart-icon disabled">
+                        <img src="http://localhost:9002/bank/img/basket-servises.JPG" alt="Корзина пуста" class="cart-icon disabled">
                     </div>
                 {% endif %}
             </div>
@@ -40,7 +40,7 @@
                 {% for bankservice in bankservices %}
                     <div class="card">
                        <a href="{% url 'bank_services_detail' bankservice.id %}">
-                        <img src="http://localhost:9000/bank/img/{{ bankservice.image }}" alt="{{ bankservice.name }}" class="card-image">
+                        <img src="http://localhost:9002/bank/img/{{ bankservice.image }}" alt="{{ bankservice.name }}" class="card-image">
                        </a>
                         <p class="title">{{bankservice.name}}</p>
                         <p class="short-description">Балансовый счет: {{ bankservice.balance_account }}</p>
