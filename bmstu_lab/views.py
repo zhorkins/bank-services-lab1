@@ -2,7 +2,6 @@ from django.db import models
 from django.shortcuts import render, redirect, get_object_or_404
 from django.db import connection
 from django.views.decorators.http import require_POST
-from .models import User
 from .models import BankService, BankRequest, BankServiceInRequest, User
 
 from rest_framework.decorators import api_view
@@ -26,17 +25,8 @@ def bankservice_list(request):
     if query:
         services = services.filter(name__icontains=query)
 
-    # Фиксированный клиент (пока нет регистрации)
-    client = User.objects.filter(is_moderator=False).first()
-    if not client:
-        client = User.objects.create_user(username='default_client', password='dummy')
-        client.is_moderator = False
-        client.save()
-
-    current_request = BankRequest.objects.filter(client=client, status=BankRequest.Status.DRAFT).first()
-    total_items = 0
-    if current_request:
-        total_items = BankServiceInRequest.objects.filter(request=current_request).count()
+    current_request = BankRequest.objects.filter(status=BankRequest.Status.DRAFT).first()
+    total_items = BankServiceInRequest.objects.filter(request=current_request).count() if current_request else 0
 
     context = {
         'bankservices': services,
@@ -45,6 +35,8 @@ def bankservice_list(request):
         'query': query,
     }
     return render(request, 'lab1/bankservice_list.html', context)
+
+
 
 # ----------------------------------------------------------------------
 # 2. ДЕТАЛЬНАЯ СТРАНИЦА УСЛУГИ
@@ -69,13 +61,13 @@ def bank_request_detail(request, bank_request_id):
             'bankservice_balance_account': item.service.balance_account,
             'bankservice_image': item.service.image,
             'bank_account': item.bank_account,
-            'price': item.service.price,
+            'price': item.service_cost,
         })
 
     context = {
         'bank_request': bank_request,
         'items': items,
-        'client_name': bank_request.client.get_full_name() or bank_request.client.username,
+        'client_name': bank_request.client_name,   # теперь просто из поля модели
     }
     return render(request, 'lab1/bank_request.html', context)
 
@@ -85,14 +77,8 @@ def bank_request_detail(request, bank_request_id):
 @require_POST
 def add_to_request(request, bankservice_id):
     service = get_object_or_404(BankService, id=bankservice_id, is_deleted=False)
-    client = User.objects.filter(is_moderator=False).first()
-    if not client:
-        client = User.objects.create_user(username='default_client', password='dummy')
-        client.is_moderator = False
-        client.save()
 
     bank_request, created = BankRequest.objects.get_or_create(
-        client=client,
         status=BankRequest.Status.DRAFT,
         defaults={'status': BankRequest.Status.DRAFT}
     )
@@ -118,12 +104,9 @@ def delete_request(request, bank_request_id):
 # ----------------------------------------------------------------------
 # 6. ЛАБОРАТОРНАЯ 3
 # ----------------------------------------------------------------------
-def get_fixed_user():
-    user, _ = User.objects.get_or_create(
-        username='fixed_creator',
-        defaults={'password': 'dummy', 'email': 'creator@example.com', 'is_moderator': False}
-    )
-    return user
+def get_moderator():
+    mod, _ = User.objects.get_or_create(username='moderator', defaults={'password': 'modpass', 'is_moderator': True})
+    return mod
 
 # ---------- Услуги ----------
 @api_view(['GET'])
@@ -158,8 +141,7 @@ def api_service_create(request):
 # ---------- Заявки ----------
 @api_view(['GET'])
 def api_request_list(request):
-    # Исключаем удалённые и черновики
-    queryset = BankRequest.objects.exclude(status__in=[BankRequest.Status.DELETED, BankRequest.Status.DRAFT])
+    queryset = BankRequest.objects.exclude(status__in=[BankRequest.Status.DRAFT, BankRequest.Status.DELETED])
     formed_from = request.query_params.get('formed_from')
     formed_to = request.query_params.get('formed_to')
     if formed_from:
@@ -169,13 +151,12 @@ def api_request_list(request):
     status_param = request.query_params.get('status')
     if status_param:
         queryset = queryset.filter(status=status_param)
-
     serializer = BankRequestSerializer(queryset, many=True)
-    # Добавляем вычисляемое поле: количество записей в м-м с непустым bank_account
-    for item in serializer.data:
-        req = BankRequest.objects.get(id=item['id'])
+    # Вычисляемое поле non_empty_items_count
+    for data in serializer.data:
+        req = BankRequest.objects.get(id=data['id'])
         cnt = BankServiceInRequest.objects.filter(request=req, bank_account__isnull=False).count()
-        item['non_empty_items_count'] = cnt
+        data['non_empty_items_count'] = cnt
     return Response(serializer.data)
 
 @api_view(['GET'])
@@ -204,13 +185,10 @@ def api_request_delete(request, pk):
 @api_view(['PUT'])
 def api_request_form(request, pk):
     bank_request = get_object_or_404(BankRequest, pk=pk)
-    if bank_request.client != get_fixed_user():
-        return Response({'error': 'Вы не создатель заявки'}, status=403)
     if bank_request.status != BankRequest.Status.DRAFT:
         return Response({'error': 'Сформировать можно только черновик'}, status=400)
-
-    total = sum(item.service.price for item in bank_request.bankserviceinrequest_set.all())
-    bank_request.total_cost = str(total)
+    if not bank_request.client_name.strip():
+        return Response({'error': 'Не указано ФИО клиента'}, status=400)
     bank_request.status = BankRequest.Status.FORMED
     bank_request.formed_at = timezone.now()
     bank_request.save()
@@ -221,17 +199,15 @@ def api_request_complete(request, pk):
     bank_request = get_object_or_404(BankRequest, pk=pk)
     if bank_request.status != BankRequest.Status.FORMED:
         return Response({'error': 'Завершить/отклонить можно только сформированную заявку'}, status=400)
-
     action = request.data.get('action')
     if action not in ['complete', 'reject']:
         return Response({'error': 'action must be "complete" or "reject"'}, status=400)
 
-    moderator = User.objects.filter(is_moderator=True).first()
-    if not moderator:
-        moderator = User.objects.create_user(username='moderator', password='modpass', email='mod@bank.com')
-        moderator.is_moderator = True
-        moderator.save()
+    # Рассчитываем общую стоимость как сумму service_cost всех услуг в заявке
+    total = sum(item.service_cost for item in bank_request.bankserviceinrequest_set.all())
+    bank_request.total_cost = str(total)
 
+    moderator = get_moderator()
     bank_request.moderator = moderator
     bank_request.completed_at = timezone.now()
     bank_request.status = BankRequest.Status.COMPLETED if action == 'complete' else BankRequest.Status.REJECTED
@@ -243,25 +219,30 @@ def api_request_complete(request, pk):
 def api_add_service_to_request(request):
     service_id = request.data.get('service_id')
     bank_account = request.data.get('bank_account')
+    service_cost = request.data.get('service_cost')
+
     if not service_id:
         return Response({'error': 'service_id required'}, status=400)
+    if service_cost is None:
+        return Response({'error': 'service_cost required'}, status=400)
 
     service = get_object_or_404(BankService, id=service_id, is_deleted=False)
-    client = get_fixed_user()
 
     draft, _ = BankRequest.objects.get_or_create(
-        client=client,
         status=BankRequest.Status.DRAFT,
         defaults={'status': BankRequest.Status.DRAFT}
     )
-    item, created = BankServiceInRequest.objects.get_or_create(
+
+    # Проверка, не добавлена ли уже эта услуга (чтобы избежать дубляжа)
+    if BankServiceInRequest.objects.filter(request=draft, service=service).exists():
+        return Response({'error': 'Service already in this request'}, status=400)
+
+    item = BankServiceInRequest.objects.create(
         request=draft,
         service=service,
-        defaults={'bank_account': bank_account}
+        bank_account=bank_account,
+        service_cost=service_cost
     )
-    if not created and bank_account:
-        item.bank_account = bank_account
-        item.save()
     return Response(BankServiceInRequestSerializer(item).data, status=201)
 
 @api_view(['DELETE'])
@@ -294,12 +275,11 @@ def api_update_request_item(request):
 # ---------- Иконка корзины ----------
 @api_view(['GET'])
 def api_cart_icon(request):
-    client = get_fixed_user()
-    draft = BankRequest.objects.filter(client=client, status=BankRequest.Status.DRAFT).first()
+    draft = BankRequest.objects.filter(status=BankRequest.Status.DRAFT).first()
     if draft:
         items_count = BankServiceInRequest.objects.filter(request=draft).count()
-        return Response({'request_id': draft.id, 'items_count': items_count})
-    return Response({'request_id': None, 'items_count': 0})
+        return Response({'bank_request_id': draft.id, 'items_count': items_count})
+    return Response({'bank_request_id': None, 'items_count': 0})
 
 # ---------- Пользователи ----------
 @api_view(['POST'])

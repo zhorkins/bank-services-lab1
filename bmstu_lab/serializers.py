@@ -5,42 +5,43 @@ from .models import BankService, BankRequest, BankServiceInRequest, User
 class BankServiceSerializer(serializers.ModelSerializer):
     class Meta:
         model = BankService
-        fields = ['id', 'name', 'balance_account', 'description', 'image', 'video', 'is_deleted', 'price']
+        fields = ['id', 'name', 'balance_account', 'description', 'image', 'video', 'is_deleted']
 
 
 class BankServiceCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = BankService
-        fields = ['name', 'balance_account', 'description', 'price']
+        fields = ['name', 'balance_account', 'description']
 
 
 class BankServiceInRequestSerializer(serializers.ModelSerializer):
     service = BankServiceSerializer(read_only=True)
     service_id = serializers.IntegerField(write_only=True)
+    service_cost = serializers.DecimalField(max_digits=10, decimal_places=2, write_only=True, required=False)
 
     class Meta:
         model = BankServiceInRequest
-        fields = ['id', 'request', 'service', 'service_id', 'bank_account']
+        fields = ['id', 'request', 'service', 'service_id', 'bank_account', 'service_cost']
         read_only_fields = ['id', 'request']
 
 
 class BankRequestSerializer(serializers.ModelSerializer):
     items = BankServiceInRequestSerializer(source='bankserviceinrequest_set', many=True, read_only=True)
-    client_name = serializers.CharField(source='client.get_full_name', read_only=True)
+    created_by_name = serializers.CharField(source='created_by.username', read_only=True)
     moderator_name = serializers.CharField(source='moderator.username', read_only=True)
 
     class Meta:
         model = BankRequest
         fields = ['id', 'status', 'created_at', 'formed_at', 'completed_at',
-                  'client', 'client_name', 'moderator', 'moderator_name', 'total_cost', 'items']
+                  'client_name', 'created_by', 'created_by_name', 'moderator', 'moderator_name', 'total_cost', 'items']
         read_only_fields = ['id', 'status', 'created_at', 'formed_at', 'completed_at',
-                            'client', 'moderator', 'client_name', 'moderator_name', 'total_cost']
+                            'created_by', 'moderator', 'created_by_name', 'moderator_name', 'total_cost']
 
 
 class BankRequestUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = BankRequest
-        fields = []
+        fields = ['client_name']
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):

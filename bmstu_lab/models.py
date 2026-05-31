@@ -11,7 +11,7 @@ class BankService(models.Model):
     image = models.CharField(max_length=100, blank=True, null=True, verbose_name="Изображение")
     video = models.CharField(max_length=100, blank=True, null=True, verbose_name="Видео")
     is_deleted = models.BooleanField(default=False, verbose_name="Мягкое удаление")
-    price = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Стоимость услуги")
+    #price = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Стоимость услуги")
 
     def __str__(self):
         return self.name
@@ -31,10 +31,29 @@ class BankRequest(models.Model):
     completed_at = models.DateTimeField(null=True, blank=True)
     total_cost = models.CharField(max_length=50, blank=True, null=True)
 
-    client = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.DO_NOTHING, related_name='client_requests',
-                               verbose_name="Клиент")
-    moderator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.DO_NOTHING, null=True, blank=True,
-                                  related_name='moderated_requests', verbose_name="Модератор")
+    # Клиент – строка (ФИО бабушки)
+    client_name = models.CharField(max_length=150, blank=True, verbose_name="ФИО клиента")
+
+    # Операционист (сотрудник, создавший заявку) – пока NULL, в ЛР4 заполним
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.DO_NOTHING,
+        null=True,
+        blank=True,
+        related_name='created_requests',
+        verbose_name="Операционист"
+    )
+
+    # Модератор (завершивший заявку) – заполняется при завершении
+    moderator = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.DO_NOTHING,
+        null=True,
+        blank=True,
+        related_name='moderated_requests',
+        verbose_name="Модератор"
+    )
+
     def __str__(self):
         return f"Заявка №{self.id}"
 
@@ -43,6 +62,7 @@ class BankServiceInRequest(models.Model):
     request = models.ForeignKey(BankRequest, on_delete=models.DO_NOTHING, verbose_name="Заявка")
     service = models.ForeignKey(BankService, on_delete=models.DO_NOTHING, verbose_name="Услуга")
     bank_account = models.CharField(max_length=20, blank=True, null=True, verbose_name="Банковский счёт клиента")
+    service_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Комиссия за услугу")
 
     class Meta:
         unique_together = ('request', 'service')   # составной уникальный ключ
