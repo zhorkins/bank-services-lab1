@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% load static %}
+    <meta charset="UTF-8">
+    <title>Swagger UI</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css">
+    <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+    <style>
+        body { margin: 0; padding: 0; }
+    </style>
+</head>
+<body>
+<div id="swagger-ui"></div>
+<script>
+window.onload = () => {
+    const ui = SwaggerUIBundle({
+        url: "{% url 'schema' %}?format=openapi",  // используем named URL
+        dom_id: '#swagger-ui',
+        presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+        layout: "BaseLayout",
+        requestInterceptor: (req) => {
+            // Добавляем CSRF-токен в заголовок для всех запросов (кроме GET)
+            if (!req.headers.hasOwnProperty('X-CSRFToken')) {
+                const csrfToken = '{{ csrf_token }}';
+                if (csrfToken) {
+                    req.headers['X-CSRFToken'] = csrfToken;
+                }
+            }
+            return req;
+        },
+        // Добавляем поддержку кнопки Authorize для нашей схемы SessionAuth
+        authActionHandlers: {
+            SessionAuth: (auth) => {
+                // Создаём форму логина
+                const container = document.createElement('div');
+                container.innerHTML = `
+                    <h3>Session Authentication</h3>
+                    <label>Username: <input id="swagger-username" type="text"/></label><br/>
+                    <label>Password: <input id="swagger-password" type="password"/></label><br/>
+                    <button id="swagger-login-btn">Login</button>
+                `;
+                const loginBtn = container.querySelector('#swagger-login-btn');
+                loginBtn.addEventListener('click', async () => {
+                    const username = container.querySelector('#swagger-username').value;
+                    const password = container.querySelector('#swagger-password').value;
+                    // Получаем CSRF-токен (можно через cookie или отдельный эндпоинт)
+                    let csrfToken = '{{ csrf_token }}';
+                    if (!csrfToken) {
+                        // пробуем взять из куки
+                        const match = document.cookie.match(/csrftoken=([^;]+)/);
+                        csrfToken = match ? match[1] : '';
+                    }
+                    const response = await fetch('/api/bank_users/login/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrfToken
+                        },
+                        body: JSON.stringify({ username, password }),
+                        credentials: 'include'   // важно: передавать куки
+                    });
+                    if (response.ok) {
+                        alert('Login successful! Page will reload.');
+                        window.location.reload();
+                    } else {
+                        const error = await response.json();
+                        alert('Login failed: ' + JSON.stringify(error));
+                    }
+                });
+                return container;
+            }
+        }
+    });
+    window.ui = ui;
+};
+</script>
+</body>
+</html>

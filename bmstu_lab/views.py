@@ -3,6 +3,11 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.db import connection
 from django.views.decorators.http import require_POST
 from .models import BankService, BankRequest, BankServiceInRequest, User
+from django.contrib.auth import authenticate, login, logout
+from django.views.decorators.csrf import csrf_exempt
+
+from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import serializers
 
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -14,7 +19,6 @@ from .serializers import (
     BankRequestSerializer, BankRequestUpdateSerializer,
     BankServiceInRequestSerializer, UserRegistrationSerializer
 )
-
 
 # ----------------------------------------------------------------------
 # 1. СТРАНИЦА СПИСКА УСЛУГ (ГЛАВНАЯ)
@@ -35,8 +39,6 @@ def bankservice_list(request):
         'query': query,
     }
     return render(request, 'lab1/bankservice_list.html', context)
-
-
 
 # ----------------------------------------------------------------------
 # 2. ДЕТАЛЬНАЯ СТРАНИЦА УСЛУГИ
@@ -67,12 +69,12 @@ def bank_request_detail(request, bank_request_id):
     context = {
         'bank_request': bank_request,
         'items': items,
-        'client_name': bank_request.client_name,   # теперь просто из поля модели
+        'client_name': bank_request.client_name,
     }
     return render(request, 'lab1/bank_request.html', context)
 
 # ----------------------------------------------------------------------
-# 4. ДОБАВЛЕНИЕ УСЛУГИ В ЗАЯВКУ (ЧЕРЕЗ ORM)
+# 4. ДОБАВЛЕНИЕ УСЛУГИ В ЗАЯВКУ (ЧЕРЕЗ ORM) ДЛЯ ШАБЛОНОВ
 # ----------------------------------------------------------------------
 @require_POST
 def add_to_request(request, bankservice_id):
@@ -89,7 +91,7 @@ def add_to_request(request, bankservice_id):
     return redirect('bank_services_list')
 
 # ----------------------------------------------------------------------
-# 5. ЛОГИЧЕСКОЕ УДАЛЕНИЕ ЗАЯВКИ (ЧЕРЕЗ SQL UPDATE)
+# 5. ЛОГИЧЕСКОЕ УДАЛЕНИЕ ЗАЯВКИ (ЧЕРЕЗ SQL UPDATE) ДЛЯ ШАБЛОНОВ
 # ----------------------------------------------------------------------
 def delete_request(request, bank_request_id):
     if request.method == 'POST':
@@ -101,14 +103,16 @@ def delete_request(request, bank_request_id):
         return redirect('bank_services_list')
     else:
         return redirect('bank_services_list')
+
 # ----------------------------------------------------------------------
-# 6. ЛАБОРАТОРНАЯ 3
+# 6. ЛАБОРАТОРНАЯ 3 и 4 (API)
 # ----------------------------------------------------------------------
 def get_moderator():
     mod, _ = User.objects.get_or_create(username='moderator', defaults={'password': 'modpass', 'is_moderator': True})
     return mod
 
 # ---------- Услуги ----------
+@csrf_exempt
 @api_view(['GET'])
 def api_service_list(request):
     queryset = BankService.objects.filter(is_deleted=False)
@@ -118,15 +122,16 @@ def api_service_list(request):
     serializer = BankServiceSerializer(queryset, many=True)
     return Response(serializer.data)
 
+@csrf_exempt
 @api_view(['GET'])
 def api_service_detail(request, pk):
     service = get_object_or_404(BankService, pk=pk, is_deleted=False)
     serializer = BankServiceSerializer(service)
     return Response(serializer.data)
 
+@csrf_exempt
 @api_view(['POST'])
 def api_service_create(request):
-    # Обработка файлов через Minio
     minio_client = MinioClient()
     image_file = request.FILES.get('image')
     video_file = request.FILES.get('video')
@@ -139,9 +144,16 @@ def api_service_create(request):
     return Response(BankServiceSerializer(service).data, status=status.HTTP_201_CREATED)
 
 # ---------- Заявки ----------
+@csrf_exempt
 @api_view(['GET'])
 def api_request_list(request):
+    if not request.user.is_authenticated:
+        return Response({'error': 'Authentication required'}, status=401)
+
     queryset = BankRequest.objects.exclude(status__in=[BankRequest.Status.DRAFT, BankRequest.Status.DELETED])
+    if not request.user.is_moderator:
+        queryset = queryset.filter(created_by=request.user)
+
     formed_from = request.query_params.get('formed_from')
     formed_to = request.query_params.get('formed_to')
     if formed_from:
@@ -151,51 +163,79 @@ def api_request_list(request):
     status_param = request.query_params.get('status')
     if status_param:
         queryset = queryset.filter(status=status_param)
+
     serializer = BankRequestSerializer(queryset, many=True)
-    # Вычисляемое поле non_empty_items_count
     for data in serializer.data:
         req = BankRequest.objects.get(id=data['id'])
         cnt = BankServiceInRequest.objects.filter(request=req, bank_account__isnull=False).count()
         data['non_empty_items_count'] = cnt
     return Response(serializer.data)
 
+@csrf_exempt
 @api_view(['GET'])
 def api_request_detail(request, pk):
     bank_request = get_object_or_404(BankRequest, pk=pk)
+    if not request.user.is_authenticated:
+        return Response({'error': 'Authentication required'}, status=401)
+    if bank_request.created_by != request.user and not request.user.is_moderator:
+        return Response({'error': 'Access denied'}, status=403)
     if bank_request.status == BankRequest.Status.DELETED:
         return Response({'error': 'Заявка удалена'}, status=status.HTTP_404_NOT_FOUND)
+
     serializer = BankRequestSerializer(bank_request)
     return Response(serializer.data)
 
+@csrf_exempt
 @api_view(['PUT'])
 def api_request_update(request, pk):
     bank_request = get_object_or_404(BankRequest, pk=pk)
+    if not request.user.is_authenticated:
+        return Response({'error': 'Authentication required'}, status=401)
+    if bank_request.created_by != request.user and not request.user.is_moderator:
+        return Response({'error': 'Access denied'}, status=403)
+
     serializer = BankRequestUpdateSerializer(bank_request, data=request.data, partial=True)
     serializer.is_valid(raise_exception=True)
     serializer.save()
     return Response(BankRequestSerializer(bank_request).data)
 
+@csrf_exempt
 @api_view(['DELETE'])
 def api_request_delete(request, pk):
     bank_request = get_object_or_404(BankRequest, pk=pk)
+    if not request.user.is_authenticated:
+        return Response({'error': 'Authentication required'}, status=401)
+    if bank_request.created_by != request.user and not request.user.is_moderator:
+        return Response({'error': 'Access denied'}, status=403)
+
     bank_request.status = BankRequest.Status.DELETED
     bank_request.save()
     return Response(status=status.HTTP_204_NO_CONTENT)
 
+@csrf_exempt
 @api_view(['PUT'])
 def api_request_form(request, pk):
     bank_request = get_object_or_404(BankRequest, pk=pk)
+    if not request.user.is_authenticated:
+        return Response({'error': 'Authentication required'}, status=401)
+    if bank_request.created_by != request.user:
+        return Response({'error': 'You are not the owner of this request'}, status=403)
     if bank_request.status != BankRequest.Status.DRAFT:
         return Response({'error': 'Сформировать можно только черновик'}, status=400)
     if not bank_request.client_name.strip():
         return Response({'error': 'Не указано ФИО клиента'}, status=400)
+
     bank_request.status = BankRequest.Status.FORMED
     bank_request.formed_at = timezone.now()
     bank_request.save()
     return Response(BankRequestSerializer(bank_request).data)
 
+@csrf_exempt
 @api_view(['PUT'])
 def api_request_complete(request, pk):
+    if not request.user.is_authenticated or not request.user.is_moderator:
+        return Response({'error': 'Only moderator can complete/reject request'}, status=403)
+
     bank_request = get_object_or_404(BankRequest, pk=pk)
     if bank_request.status != BankRequest.Status.FORMED:
         return Response({'error': 'Завершить/отклонить можно только сформированную заявку'}, status=400)
@@ -203,20 +243,23 @@ def api_request_complete(request, pk):
     if action not in ['complete', 'reject']:
         return Response({'error': 'action must be "complete" or "reject"'}, status=400)
 
-    # Рассчитываем общую стоимость как сумму service_cost всех услуг в заявке
     total = sum(item.service_cost for item in bank_request.bankserviceinrequest_set.all())
     bank_request.total_cost = str(total)
 
-    moderator = get_moderator()
-    bank_request.moderator = moderator
+    if not bank_request.moderator:
+        bank_request.moderator = request.user
     bank_request.completed_at = timezone.now()
     bank_request.status = BankRequest.Status.COMPLETED if action == 'complete' else BankRequest.Status.REJECTED
     bank_request.save()
     return Response(BankRequestSerializer(bank_request).data)
 
 # ---------- М-М (услуги в заявке) ----------
+@csrf_exempt
 @api_view(['POST'])
 def api_add_service_to_request(request):
+    if not request.user.is_authenticated:
+        return Response({'error': 'Authentication required'}, status=401)
+
     service_id = request.data.get('service_id')
     bank_account = request.data.get('bank_account')
     service_cost = request.data.get('service_cost')
@@ -229,11 +272,11 @@ def api_add_service_to_request(request):
     service = get_object_or_404(BankService, id=service_id, is_deleted=False)
 
     draft, _ = BankRequest.objects.get_or_create(
+        created_by=request.user,
         status=BankRequest.Status.DRAFT,
-        defaults={'status': BankRequest.Status.DRAFT}
+        defaults={'status': BankRequest.Status.DRAFT, 'created_by': request.user}
     )
 
-    # Проверка, не добавлена ли уже эта услуга (чтобы избежать дубляжа)
     if BankServiceInRequest.objects.filter(request=draft, service=service).exists():
         return Response({'error': 'Service already in this request'}, status=400)
 
@@ -245,25 +288,39 @@ def api_add_service_to_request(request):
     )
     return Response(BankServiceInRequestSerializer(item).data, status=201)
 
+@csrf_exempt
 @api_view(['DELETE'])
 def api_remove_service_from_request(request):
     request_id = request.query_params.get('request_id')
     service_id = request.query_params.get('service_id')
     if not request_id or not service_id:
-        return Response({'error': 'request_id and service_id required'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'error': 'request_id and service_id required'}, status=400)
+
     bank_request = get_object_or_404(BankRequest, id=request_id)
+    if not request.user.is_authenticated:
+        return Response({'error': 'Authentication required'}, status=401)
+    if bank_request.created_by != request.user and not request.user.is_moderator:
+        return Response({'error': 'Access denied'}, status=403)
+
     service = get_object_or_404(BankService, id=service_id)
     item = get_object_or_404(BankServiceInRequest, request=bank_request, service=service)
     item.delete()
     return Response(status=status.HTTP_204_NO_CONTENT)
 
+@csrf_exempt
 @api_view(['PUT'])
 def api_update_request_item(request):
     request_id = request.query_params.get('request_id')
     service_id = request.query_params.get('service_id')
     if not request_id or not service_id:
-        return Response({'error': 'request_id and service_id required'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'error': 'request_id and service_id required'}, status=400)
+
     bank_request = get_object_or_404(BankRequest, id=request_id)
+    if not request.user.is_authenticated:
+        return Response({'error': 'Authentication required'}, status=401)
+    if bank_request.created_by != request.user and not request.user.is_moderator:
+        return Response({'error': 'Access denied'}, status=403)
+
     service = get_object_or_404(BankService, id=service_id)
     item = get_object_or_404(BankServiceInRequest, request=bank_request, service=service)
     bank_account = request.data.get('bank_account')
@@ -273,15 +330,19 @@ def api_update_request_item(request):
     return Response(BankServiceInRequestSerializer(item).data)
 
 # ---------- Иконка корзины ----------
+@csrf_exempt
 @api_view(['GET'])
 def api_cart_icon(request):
-    draft = BankRequest.objects.filter(status=BankRequest.Status.DRAFT).first()
+    if not request.user.is_authenticated:
+        return Response({'error': 'Authentication required'}, status=401)
+    draft = BankRequest.objects.filter(created_by=request.user, status=BankRequest.Status.DRAFT).first()
     if draft:
         items_count = BankServiceInRequest.objects.filter(request=draft).count()
         return Response({'bank_request_id': draft.id, 'items_count': items_count})
     return Response({'bank_request_id': None, 'items_count': 0})
 
 # ---------- Пользователи ----------
+@csrf_exempt
 @api_view(['POST'])
 def api_register(request):
     serializer = UserRegistrationSerializer(data=request.data)
@@ -289,10 +350,43 @@ def api_register(request):
     user = serializer.save()
     return Response({'id': user.id, 'username': user.username}, status=status.HTTP_201_CREATED)
 
+@extend_schema(
+    request=inline_serializer(
+        name='LoginRequest',
+        fields={
+            'username': serializers.CharField(),
+            'password': serializers.CharField(),
+        }
+    ),
+    responses={200: inline_serializer(
+        name='LoginResponse',
+        fields={
+            'status': serializers.CharField(),
+            'username': serializers.CharField(),
+            'is_moderator': serializers.BooleanField(),
+        }
+    )}
+)
+@csrf_exempt
 @api_view(['POST'])
-def api_login_stub(request):
-    return Response({'message': 'Аутентификация будет в ЛР4'})
+def api_login(request):
+    username = request.data.get('username')
+    password = request.data.get('password')
+    if not username or not password:
+        return Response({'error': 'username and password required'}, status=400)
+    user = authenticate(request, username=username, password=password)
+    if user is not None:
+        login(request, user)
+        return Response({
+            'status': 'ok',
+            'username': user.username,
+            'is_moderator': user.is_moderator
+        })
+    else:
+        return Response({'error': 'Invalid credentials'}, status=401)
 
+@csrf_exempt
 @api_view(['POST'])
-def api_logout_stub(request):
-    return Response({'message': 'Деавторизация будет в ЛР4'})
+def api_logout(request):
+    logout(request)
+    return Response({'status': 'ok'})

@@ -40,8 +40,30 @@ INSTALLED_APPS = [
     "bmstu_lab",
     'rest_framework',
     'django_filters',
+    'drf_spectacular',
 
 ]
+
+REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'bmstu_lab.authentication.CsrfExemptSessionAuthentication',   # <-- это главное
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny',
+    ],
+}
+
+CSRF_TRUSTED_ORIGINS = ['http://127.0.0.1:8000']
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Bank Services API',
+    'DESCRIPTION': 'API для управления банковскими услугами и заявками',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'SWAGGER_UI_SETTINGS': {
+        'persistAuthorization': True,
+    },
+}
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -58,7 +80,7 @@ ROOT_URLCONF = "bmstu.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [BASE_DIR / "bmstu_lab/templates"],
+        "DIRS": [BASE_DIR / "bmstu_lab/templates", BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -138,3 +160,18 @@ MINIO_SECRET_KEY = 'minioadmin'
 MINIO_BUCKET_NAME = 'bank'
 MINIO_USE_HTTPS = False
 MINIO_PUBLIC_URL = 'http://localhost:9002/bank/'
+
+# Настройка кэша для Redis (понадобится для сессий)
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': 'redis://localhost:6379/1',
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        }
+    }
+}
+
+# Хранение сессий в Redis (вместо базы данных)
+SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
+SESSION_CACHE_ALIAS = 'default'

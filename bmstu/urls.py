@@ -15,9 +15,11 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 
-from django.contrib import admin
+
 from django.urls import path
 from bmstu_lab import views
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+from django.contrib import admin
 
 urlpatterns = [
     path('', views.bankservice_list, name='bank_services_list'),
@@ -39,6 +41,27 @@ urlpatterns = [
     path('api/bank_request_items/update/', views.api_update_request_item, name='api_update_request_item'),
     path('api/bank_requests/cart/', views.api_cart_icon, name='api_cart_icon'),
     path('api/bank_users/register/', views.api_register, name='api_register'),
-    path('api/bank_users/login/', views.api_login_stub, name='api_login'),
-    path('api/bank_users/logout/', views.api_logout_stub, name='api_logout'),
+    path('api/bank_users/login/', views.api_login, name='api_login'),
+    path('api/bank_users/logout/', views.api_logout, name='api_logout'),
+    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+    path('api/swagger/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+
+    path('', views.bankservice_list, name='bank_services_list'),
+
+    # Используем кастомный шаблон
+    #path('api/swagger/', SpectacularSwaggerView.as_view(template_name='swagger_ui.html'), name='swagger-ui'),
+    path('admin/', admin.site.urls),
+]
+
+from django.http import JsonResponse
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.decorators.http import require_GET
+
+@require_GET
+@ensure_csrf_cookie
+def get_csrf_token(request):
+    return JsonResponse({'csrfToken': request.COOKIES.get('csrftoken', '')})
+
+urlpatterns += [
+    path('api/get-csrf-token/', get_csrf_token, name='get_csrf_token'),
 ]
