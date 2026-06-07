@@ -11,12 +11,18 @@ class BankService(models.Model):
     image = models.CharField(max_length=100, blank=True, null=True, verbose_name="Изображение")
     video = models.CharField(max_length=100, blank=True, null=True, verbose_name="Видео")
     is_deleted = models.BooleanField(default=False, verbose_name="Мягкое удаление")
-    #price = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Стоимость услуги")
+    # Добавленное поле для лабораторной №6
+    english_description = models.TextField(
+        blank=True, null=True,
+        verbose_name="Краткое описание на английском (50-100 символов)"
+    )
+    # Если нужно, можете раскомментировать price
+    # price = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Стоимость услуги")
 
     def __str__(self):
         return self.name
 
-# Модель заявки
+# Модель заявки (без изменений)
 class BankRequest(models.Model):
     class Status(models.TextChoices):
         DRAFT = 'DRAFT', 'Черновик'
@@ -31,10 +37,8 @@ class BankRequest(models.Model):
     completed_at = models.DateTimeField(null=True, blank=True)
     total_cost = models.CharField(max_length=50, blank=True, null=True)
 
-    # Клиент – строка (ФИО бабушки)
     client_name = models.CharField(max_length=150, blank=True, verbose_name="ФИО клиента")
 
-    # Операционист (сотрудник, создавший заявку) – пока NULL, в ЛР4 заполним
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.DO_NOTHING,
@@ -44,7 +48,6 @@ class BankRequest(models.Model):
         verbose_name="Операционист"
     )
 
-    # Модератор (завершивший заявку) – заполняется при завершении
     moderator = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.DO_NOTHING,
@@ -57,7 +60,7 @@ class BankRequest(models.Model):
     def __str__(self):
         return f"Заявка №{self.id}"
 
-# Модель связи "услуги в заявке" (многие-ко-многим с доп. полями)
+# Модель связи "услуги в заявке"
 class BankServiceInRequest(models.Model):
     request = models.ForeignKey(BankRequest, on_delete=models.DO_NOTHING, verbose_name="Заявка")
     service = models.ForeignKey(BankService, on_delete=models.DO_NOTHING, verbose_name="Услуга")
@@ -65,12 +68,12 @@ class BankServiceInRequest(models.Model):
     service_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Комиссия за услугу")
 
     class Meta:
-        unique_together = ('request', 'service')   # составной уникальный ключ
+        unique_together = ('request', 'service')
 
     def __str__(self):
         return f"{self.request} – {self.service}"
 
-# Модель пользователя (проверка роли модератора у пользователя)
+# Модель пользователя
 class User(AbstractUser):
     is_moderator = models.BooleanField(default=False, verbose_name="Модератор")
 

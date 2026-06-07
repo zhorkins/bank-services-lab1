@@ -10,7 +10,6 @@ import BankCart from './pages/BankCart';
 
 function App() {
   const [cartItems, setCartItems] = useState<Set<number>>(new Set());
-
   const clearCart = () => setCartItems(new Set());
 
   return (

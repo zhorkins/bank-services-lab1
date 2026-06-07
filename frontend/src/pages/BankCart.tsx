@@ -3,7 +3,6 @@ import Breadcrumbs from '../components/Breadcrumbs';
 import { mockServices } from '../data/mockServices';
 
 const MINIO_IMG_BASE = 'http://localhost:9002/bank/img/';
-
 const DEFAULT_IMAGE = '/placeholder.png';
 
 interface BankCartProps {
@@ -14,7 +13,6 @@ interface BankCartProps {
 const BankCart = ({ cartItems, clearCart }: BankCartProps) => {
   const selectedServices = mockServices.filter((s) => cartItems.has(s.id));
   const totalPrice = selectedServices.reduce((sum, s) => sum + (s.price || 0), 0);
-
   const crumbs = [{ label: 'Корзина' }];
   const requestNumber = Math.floor(Math.random() * 1000);
 
@@ -47,12 +45,7 @@ const BankCart = ({ cartItems, clearCart }: BankCartProps) => {
                 return (
                   <tr key={s.id}>
                     <td style={{ width: '80px' }}>
-                      <img
-                        src={imgUrl}
-                        alt={s.name}
-                        style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '4px' }}
-                        onError={(e) => (e.currentTarget.src = DEFAULT_IMAGE)}
-                      />
+                      <img src={imgUrl} alt={s.name} style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '4px' }} onError={(e) => (e.currentTarget.src = DEFAULT_IMAGE)} />
                     </td>
                     <td>{s.name}</td>
                     <td>{s.balance_account}</td>
