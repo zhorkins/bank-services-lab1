@@ -81,7 +81,7 @@ export const useBankServiceSearch = (initialItems: BankService[]) => {
         if (!imageEmbedding) return;
         setItems(prevItems => {
             if (!prevItems[0]?.embedding) return prevItems;
-            const threshold = 0.004;
+            const threshold = 0.005;
             const processed = prevItems.map(item => {
                 if (!item.embedding) return { ...item, score: 0, isVisible: false };
                 const similarity = cosineSimilarity(imageEmbedding, item.embedding);
@@ -89,7 +89,7 @@ export const useBankServiceSearch = (initialItems: BankService[]) => {
             });
 
             processed.sort((a, b) => b.score - a.score);
-            const TOP_K = 6;   // максимальное количество результатов
+            const TOP_K = 4;   // максимальное количество результатов
             return processed.slice(0, TOP_K);
         });
     }, [imageEmbedding]);
